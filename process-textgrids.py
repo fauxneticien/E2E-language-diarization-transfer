@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from math import ceil
+# use pip install pympi-ling if you don't have the pympi package installed
 from pympi import Praat
 from statistics import multimode
 
