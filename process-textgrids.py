@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from math import ceil
+from math import floor
 # use pip install pympi-ling if you don't have the pympi package installed
 from pympi import Praat
 from statistics import multimode
@@ -57,7 +57,7 @@ for tg_file in glob.glob("./*.TextGrid"):
         # Bin times into 200-millisecond chunks (and get most frequently occurring value for bin)
         # to create labels required for: https://github.com/Lhx94As/E2E-language-diarization/blob/main/data/data.txt
 
-        n_bins = ceil(clip_dur_ms / 200)
+        n_bins = floor(clip_dur_ms / 200)
 
         label_arr = np.array_split(clip_zeros, n_bins)
 
