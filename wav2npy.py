@@ -14,46 +14,49 @@ def extract_fbank(signal, sr, dim=23, log=True):
         features = psf.fbank(signal, sr, nfilt=dim, lowfreq=20, highfreq=high_frequency)
     return features
 
-wav_file = "4oLp3bc9OSJbDrwM_0000.wav"
+# wav_files = glob.glob("*.wav")
+wav_files = ["4oLp3bc9OSJbDrwM_0000.wav"]
 
-(wav_sr, wav_signal) = wav.read(wav_file)
+for wav_file in wav_files:
 
-# clip duration in seconds
-wav_dur = len(wav_signal) / wav_sr
+    (wav_sr, wav_signal) = wav.read(wav_file)
 
-# group signal into 200 ms to extract features, as per:
-# Liu et al: "Since the ground-truth language labels of the data in WSTCSMC 2020 are assigned to 200 ms segments, the input speech sample is first partitioned into segments of the same duration."
+    # clip duration in seconds
+    wav_dur = len(wav_signal) / wav_sr
 
-# number of partitions (divide duration by 200 ms = 0.2 seconds)
-n_parts  = wav_dur / 0.2
+    # group signal into 200 ms to extract features, as per:
+    # Liu et al: "Since the ground-truth language labels of the data in WSTCSMC 2020 are assigned to 200 ms segments, the input speech sample is first partitioned into segments of the same duration."
 
-# Liu et al: "We ignore the remaining of the speech samples that cannot be divided exactly into 200ms segments."
-n_parts  = math.floor(n_parts)
+    # number of partitions (divide duration by 200 ms = 0.2 seconds)
+    n_parts  = wav_dur / 0.2
 
-# Liu et al: "For each segment 23-dimensional log-Mel-filterbank features are extracted with 25 ms window and a 10 ms shift as [10] for all systems."
+    # Liu et al: "We ignore the remaining of the speech samples that cannot be divided exactly into 200ms segments."
+    n_parts  = math.floor(n_parts)
 
-# 10 ms shift over 200 ms  = 19 frames
-# 19 frames x 23-dim feats = 437 total features
-#
-# create placeholder of shape (p, 437), where p = number of partitions
-features = np.zeros((n_parts, 437))
+    # Liu et al: "For each segment 23-dimensional log-Mel-filterbank features are extracted with 25 ms window and a 10 ms shift as [10] for all systems."
 
-for ith_part in range(n_parts):
+    # 10 ms shift over 200 ms  = 19 frames
+    # 19 frames x 23-dim feats = 437 total features
+    #
+    # create placeholder of shape (p, 437), where p = number of partitions
+    features = np.zeros((n_parts, 437))
 
-    start_sample = int(ith_part * 0.2 * wav_sr)
-    end_sample   = int((start_sample + (0.2 * wav_sr) - 1))
+    for ith_part in range(n_parts):
 
-    part_signal   = wav_signal[start_sample:end_sample]
-    part_features = extract_fbank(part_signal, wav_sr)
+        start_sample = int(ith_part * 0.2 * wav_sr)
+        end_sample   = int((start_sample + (0.2 * wav_sr) - 1))
 
-    # Crop-frame in case overflow
-    cropped_frame = part_features.shape[0] % 19
-    
-    if cropped_frame != 0:
-        part_features = part_features[:-cropped_frame, :]
+        part_signal   = wav_signal[start_sample:end_sample]
+        part_features = extract_fbank(part_signal, wav_sr)
 
-    features[ith_part,] = part_features.reshape(-1)
+        # Crop-frame in case overflow
+        cropped_frame = part_features.shape[0] % 19
 
-# Save feature file
-npy_name = os.path.basename(wav_file).rsplit('.')[0] + '.npy'
-np.save(npy_name, features)
+        if cropped_frame != 0:
+            part_features = part_features[:-cropped_frame, :]
+
+        features[ith_part,] = part_features.reshape(-1)
+
+    # Save feature file
+    npy_name = os.path.basename(wav_file).rsplit('.')[0] + '.npy'
+    np.save(npy_name, features)
