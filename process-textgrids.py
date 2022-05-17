@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 
 from math import floor
-# use pip install pympi-ling if you don't have the pympi package installed
 from pympi import Praat
 from statistics import multimode
 
@@ -21,7 +20,10 @@ def get_annotated_intervals(tg_data, tier_name):
 # Create placeholder for dataframes
 tg_dfs = []
 
-for tg_file in glob.glob("./*.TextGrid"):
+for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
+
+    # wav_file = tg_file.rsplit(".")[0] + ".wav"
+    # wav_data, wav_sr = sf.read(wav_file)
 
     tg_data = Praat.TextGrid(file_path=tg_file)
 
@@ -32,6 +34,9 @@ for tg_file in glob.glob("./*.TextGrid"):
     clip_labels = []
 
     for clip_start, clip_end, _ in clips:
+
+        # subset the wav file to get samples for clip
+        # clip_wav = wav_data[clip_start:clip_end]
 
         clip_dur_ms = clip_end - clip_start
 
@@ -71,11 +76,19 @@ for tg_file in glob.glob("./*.TextGrid"):
     # 4oLp3bc9OSJbDrwM.TextGrid => 4oLp3bc9OSJbDrwM
     tg_basename = os.path.basename(tg_file).rsplit('.')[0]
 
+    clip_id = [ tg_basename + "_" + str(i).zfill(4) for i in range(len(clips)) ]
+
+    # write out wav clip
+    # sf.write(clip_id + ".wav")
+
     tg_dfs.append(pd.DataFrame({
-        "clip_id" : [ tg_basename + "_" + str(i).zfill(4) for i in range(len(clips)) ],
+        "clip_id" : clip_id,
         "text" : [ text for _, _, text in clips ],
         "label" : clip_labels
     }))
 
 labels_df = pd.concat(tg_dfs)
+
+print(labels_df[['clip_id', 'label']])
+
 # labels_df.to_csv("labels.tsv", sep="\t", index=False)
