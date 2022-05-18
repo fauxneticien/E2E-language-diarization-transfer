@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import pandas as pd
+import soundfile as sf
 
 from math import floor
 from pympi import Praat
@@ -20,10 +21,11 @@ def get_annotated_intervals(tg_data, tier_name):
 # Create placeholder for dataframes
 tg_dfs = []
 
-for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
+textgrid_files = glob.glob("wavdata/*.TextGrid")
 
-    # wav_file = tg_file.rsplit(".")[0] + ".wav"
-    # wav_data, wav_sr = sf.read(wav_file)
+for tg_file in textgrid_files:
+    wav_file = tg_file.rsplit(".")[0] + ".wav"
+    wav_data, wav_sr = sf.read(wav_file)
 
     tg_data = Praat.TextGrid(file_path=tg_file)
 
@@ -32,11 +34,13 @@ for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
     english = get_annotated_intervals(tg_data, "english")
 
     clip_labels = []
+    clip_wavs = []
 
     for clip_start, clip_end, _ in clips:
 
         # subset the wav file to get samples for clip
-        # clip_wav = wav_data[clip_start:clip_end]
+        clip_wav = wav_data[int(clip_start / 1000 * wav_sr) : int(clip_end / 1000 * wav_sr)]
+        clip_wavs.append(clip_wav)
 
         clip_dur_ms = clip_end - clip_start
 
@@ -77,9 +81,10 @@ for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
     tg_basename = os.path.basename(tg_file).rsplit('.')[0]
 
     clip_id = [ tg_basename + "_" + str(i).zfill(4) for i in range(len(clips)) ]
-
-    # write out wav clip
-    # sf.write(clip_id + ".wav")
+    assert len(clip_id) == len(clip_wavs)
+    for i in range(len(clip_id)):
+        # write out wav clip
+        sf.write("processed/" + clip_id[i] + ".wav", clip_wavs[i], wav_sr)
 
     tg_dfs.append(pd.DataFrame({
         "clip_id" : clip_id,
@@ -89,6 +94,5 @@ for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
 
 labels_df = pd.concat(tg_dfs)
 
-print(labels_df[['clip_id', 'label']])
-
-# labels_df.to_csv("labels.tsv", sep="\t", index=False)
+#print(labels_df[['clip_id', 'label']])
+labels_df.to_csv('labels.tsv', sep="\t", index=False)
