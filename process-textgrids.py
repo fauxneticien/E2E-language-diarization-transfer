@@ -1,6 +1,7 @@
 import glob
 import os
 
+import soundfile as sf
 import numpy as np
 import pandas as pd
 
@@ -22,6 +23,9 @@ tg_dfs = []
 
 for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
 
+    # 4oLp3bc9OSJbDrwM.TextGrid => 4oLp3bc9OSJbDrwM
+    tg_basename = os.path.basename(tg_file).rsplit('.')[0]
+    
     # wav_file = tg_file.rsplit(".")[0] + ".wav"
     # wav_data, wav_sr = sf.read(wav_file)
 
@@ -33,10 +37,18 @@ for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
 
     clip_labels = []
 
-    for clip_start, clip_end, _ in clips:
+    for clip_index, clip_info in enumerate(clips):
+        
+        clip_start, clip_end, _ = clip_info
 
+        # 4oLp3bc9OSJbDrwM => 4oLp3bc9OSJbDrwM_0001.wav
+        clip_id = tg_basename + + "_" + str(i).zfill(4)
+        
         # subset the wav file to get samples for clip
-        # clip_wav = wav_data[clip_start:clip_end]
+        # start_sample = clip_start * wav_sr
+        # end_sample = clip_end * wav_sr
+        # clip_wav = wav_data[start_sample:end_sample]
+        # sf.write(clip_id + '.wav', clip_wav, wav_sr)
 
         clip_dur_ms = clip_end - clip_start
 
@@ -73,16 +85,8 @@ for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
 
         clip_labels.append(label_str)
 
-    # 4oLp3bc9OSJbDrwM.TextGrid => 4oLp3bc9OSJbDrwM
-    tg_basename = os.path.basename(tg_file).rsplit('.')[0]
-
-    clip_id = [ tg_basename + "_" + str(i).zfill(4) for i in range(len(clips)) ]
-
-    # write out wav clip
-    # sf.write(clip_id + ".wav")
-
     tg_dfs.append(pd.DataFrame({
-        "clip_id" : clip_id,
+        "clip_id" : [ tg_basename + "_" + str(i).zfill(4) for i in range(len(clips)) ],
         "text" : [ text for _, _, text in clips ],
         "label" : clip_labels
     }))
@@ -91,4 +95,4 @@ labels_df = pd.concat(tg_dfs)
 
 print(labels_df[['clip_id', 'label']])
 
-# labels_df.to_csv("labels.tsv", sep="\t", index=False)
+# labels_df.to_csv("labels.tsv", sep=" ", index=False)
