@@ -3,6 +3,7 @@ import math
 import python_speech_features as psf
 import scipy.io.wavfile as wav
 import numpy as np
+import glob
 
 # Liu et al: https://www.isca-speech.org/archive/pdfs/interspeech_2021/liu21d_interspeech.pdf
 
@@ -14,8 +15,9 @@ def extract_fbank(signal, sr, dim=23, log=True):
         features = psf.fbank(signal, sr, nfilt=dim, lowfreq=20, highfreq=high_frequency)
     return features
 
-# wav_files = glob.glob("*.wav")
-wav_files = ["4oLp3bc9OSJbDrwM_0000.wav"]
+wav_files = glob.glob("processed/*.wav")
+# wav_files = ["4oLp3bc9OSJbDrwM_0000.wav"]
+os.mkdir("npys")
 
 for wav_file in wav_files:
 
@@ -58,5 +60,5 @@ for wav_file in wav_files:
         features[ith_part,] = part_features.reshape(-1)
 
     # Save feature file
-    npy_name = os.path.basename(wav_file).rsplit('.')[0] + '.npy'
+    npy_name = os.path.join("npys", os.path.basename(wav_file).rsplit('.')[0] + '.npy')
     np.save(npy_name, features)
