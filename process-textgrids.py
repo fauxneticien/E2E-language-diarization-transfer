@@ -42,7 +42,7 @@ for tg_file in ["4oLp3bc9OSJbDrwM.TextGrid", "4xyIm2P6Xzlin341.TextGrid"]:
         clip_start, clip_end, _ = clip_info
 
         # 4oLp3bc9OSJbDrwM => 4oLp3bc9OSJbDrwM_0001.wav
-        clip_id = tg_basename + + "_" + str(i).zfill(4)
+        clip_id = tg_basename + + "_" + str(clip_index).zfill(4)
         
         # subset the wav file to get samples for clip
         # start_sample = clip_start * wav_sr
