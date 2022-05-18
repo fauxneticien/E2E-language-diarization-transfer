@@ -1,6 +1,7 @@
 import glob
 import os
 
+import soundfile as sf
 import numpy as np
 import pandas as pd
 import soundfile as sf
@@ -36,8 +37,13 @@ for tg_file in textgrid_files:
     clip_labels = []
     clip_wavs = []
 
-    for clip_start, clip_end, _ in clips:
+    for clip_index, clip_info in enumerate(clips):
+        
+        clip_start, clip_end, _ = clip_info
 
+        # 4oLp3bc9OSJbDrwM => 4oLp3bc9OSJbDrwM_0001.wav
+        clip_id = tg_basename + + "_" + str(clip_index).zfill(4)
+        
         # subset the wav file to get samples for clip
         clip_wav = wav_data[int(clip_start / 1000 * wav_sr) : int(clip_end / 1000 * wav_sr)]
         clip_wavs.append(clip_wav)
@@ -87,7 +93,7 @@ for tg_file in textgrid_files:
         sf.write("processed/" + clip_id[i] + ".wav", clip_wavs[i], wav_sr)
 
     tg_dfs.append(pd.DataFrame({
-        "clip_id" : clip_id,
+        "clip_id" : [ tg_basename + "_" + str(i).zfill(4) for i in range(len(clips)) ],
         "text" : [ text for _, _, text in clips ],
         "label" : clip_labels
     }))
@@ -96,3 +102,4 @@ labels_df = pd.concat(tg_dfs)
 
 #print(labels_df[['clip_id', 'label']])
 labels_df.to_csv('labels.tsv', sep="\t", index=False)
+
