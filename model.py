@@ -59,7 +59,7 @@ class Transformer_E2E_LID(nn.Module):
         super(Transformer_E2E_LID, self).__init__()
         self.transform = nn.Linear(input_dim, feat_dim)
         self.layernorm1 = LayerNorm(feat_dim)
-        self.pos_encoding = PositionalEncoding(max_seq_len=max_seq_len, features_dim=256, device=device)
+        self.pos_encoding = PositionalEncoding(max_seq_len=max_seq_len, features_dim=256)
         self.layernorm2 = LayerNorm(feat_dim)
         self.attention_block1 = EncoderBlock(feat_dim, d_k, d_v, d_ff, n_heads, dropout=dropout)
         self.attention_block2 = EncoderBlock(feat_dim, d_k, d_v, d_ff, n_heads, dropout=dropout)
@@ -108,7 +108,7 @@ class X_Transformer_E2E_LID(nn.Module):
         self.fc7 = nn.Linear(feat_dim, n_lang)
         # attention module
         self.layernorm1 = LayerNorm(feat_dim)
-        self.pos_encoding = PositionalEncoding(max_seq_len=max_seq_len, features_dim=256, device=device)
+        self.pos_encoding = PositionalEncoding(max_seq_len=max_seq_len, features_dim=256)
         self.layernorm2 = LayerNorm(feat_dim)
         self.attention_block1 = EncoderBlock(feat_dim, d_k, d_v, d_ff, n_heads, dropout=dropout)
         self.attention_block2 = EncoderBlock(feat_dim, d_k, d_v, d_ff, n_heads, dropout=dropout)

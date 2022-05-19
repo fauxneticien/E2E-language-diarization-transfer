@@ -12,7 +12,7 @@ from data_load import *
 from model_evaluation import *
 
 #python train_xsa_e2e.py --savedir "/home/hexin/Desktop/models" --train "/home/hexin/Desktop/data/train.txt" --test "/home/hexin/Desktop/data/test.txt"
-#                          --seed 0 --device 0 --batch 64 --epochs 30 --dim 23 --lang 3 --model my_xsa_model --lr 0.0001 --maxlength 666 --lambda 0.5
+#                          --seed 0 --device 0 --batch 64 --epochs 30 --dim 23 --lang 3 --model my_xsa_model --lr 0.0001 --maxlength 666 --lambda_p 0.5
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -38,6 +38,42 @@ def get_output(outputs, seq_len):
             output_ = torch.cat((output_, output), dim=0)
     return output_
 
+def run_eval(model, valid_data, device, args, cur_best_acc, cur_best_eer):
+    best_acc = cur_best_acc
+    best_eer = cur_best_eer
+    model.eval()
+    eer = 0
+    correct = 0
+    total = 0
+    FAR_list = torch.zeros(args.lang)
+    FRR_list = torch.zeros(args.lang)
+    with torch.no_grad():
+        for step, (utt, labels, cnn_labels, seq_len) in enumerate(valid_data):
+            utt_ = utt.to(device=device, dtype=torch.float)
+            labels = labels.to(device=device, dtype=torch.long)
+            outputs, cnn_outputs = model(x=utt_, seq_len=seq_len, atten_mask=None)
+            outputs = get_output(outputs, seq_len)
+            predicted = torch.argmax(outputs, -1)
+            total += labels.size(-1)
+            correct += (predicted == labels).sum().item()
+            FAR, FRR = compute_far_frr(args.lang, predicted, labels)
+            FAR_list += FAR
+            FRR_list += FRR
+        acc = correct / total
+    print('Current Acc.: {:.4f} %'.format(100 * acc))
+    for i in range(args.lang):
+        eer_ = (FAR_list[i] / total + FRR_list[i] / total) / 2
+        eer += eer_
+        print("EER for label {}: {:.4f}%".format(i, eer_ * 100))
+    print('EER: {:.4f} %'.format(100 * eer / args.lang))
+    if args.testonly:
+        return 0, 0
+    if acc > best_acc:
+        print('New best Acc.: {:.4f}%, EER: {:.4f} %, model saved!'.format(100 * acc, 100 * eer / args.lang))
+        best_acc = acc
+        best_eer = eer / args.lang
+        torch.save(model.state_dict(), args.savedir + '{}.ckpt'.format(args.model))
+    return best_acc, best_eer
 
 def main():
     global best_eer
@@ -54,7 +90,9 @@ def main():
     parser.add_argument('--model', type=str, help='model name', default='Transformer')
     parser.add_argument('--lr', type=float, help='initial learning rate', default=0.0001)
     parser.add_argument('--maxlength', type=int, help='Max sequence length for positional enc', default=200)
-    parser.add_argument('--lambda', type=float, help='hyperparameter for joint training, default 0.5', default=0.5)
+    parser.add_argument('--lambda_p', type=float, help='hyperparameter for joint training, default 0.5', default=0.5)
+    parser.add_argument('--testonly', type=bool, help='evaluation only')
+    parser.add_argument('--model_ckpt', type=str, help='check point of the model')
     args = parser.parse_args()
 
     setup_seed(args.seed)
@@ -72,24 +110,31 @@ def main():
                                 max_seq_len=args.maxlength,
                                 device=device)
     model.to(device)
+
+    valid_txt = args.test
+    valid_set = RawFeatures(valid_txt)
+    valid_data = DataLoader(dataset=valid_set,
+                            batch_size=1,
+                            pin_memory=True,
+                            shuffle=False,
+                            collate_fn=collate_fn_cnn_atten)
+
+    if args.testonly:
+        model.load_state_dict(torch.load(args.model_ckpt, map_location='cuda:0'), strict=False)
+        _, _ = run_eval(model, valid_data, device, args, 0, 0)
+        return
+
     loss_func_CRE = nn.CrossEntropyLoss().to(device)
     loss_func_xv = nn.CrossEntropyLoss(ignore_index=255).to(device) # this is important since 255 is for zero paddings
     # load data
     train_txt = args.train
     train_set = RawFeatures(train_txt)
-    valid_txt = args.test
-    valid_set = RawFeatures(valid_txt)
     train_data = DataLoader(dataset=train_set,
                             batch_size=args.batch,
                             pin_memory=True,
                             num_workers=16,
                             shuffle=True,
                             collate_fn=collate_fn_cnn_atten)
-    valid_data = DataLoader(dataset=valid_set,
-                            batch_size=1,
-                            pin_memory=True,
-                            shuffle=False,
-                            collate_fn=collate_fn_cnn_atten) 
     # optimizer & learning rate decay strategy
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
@@ -109,7 +154,7 @@ def main():
             outputs = get_output(outputs, seq_len)
             loss_trans = loss_func_CRE(outputs, labels)
             loss_xv = loss_func_xv(cnn_outputs,cnn_labels)
-            loss = args.lambda*loss_trans + (1-args.lambda)*loss_xv
+            loss = args.lambda_p*loss_trans + (1-args.lambda_p)*loss_xv
             # Backward and optimize
             optimizer.zero_grad()
             loss.backward()
@@ -121,36 +166,7 @@ def main():
         scheduler.step()
         print('Current LR: {}'.format(get_lr(optimizer)))
 
-        model.eval()
-        eer = 0
-        correct = 0
-        total = 0
-        FAR_list = torch.zeros(args.lang)
-        FRR_list = torch.zeros(args.lang)
-        with torch.no_grad():
-            for step, (utt, labels, cnn_labels, seq_len) in enumerate(valid_data):
-                utt_ = utt.to(device=device, dtype=torch.float)
-                labels = labels.to(device=device, dtype=torch.long)
-                outputs, cnn_outputs = model(x=utt_, seq_len=seq_len, atten_mask=None)
-                outputs = get_output(outputs, seq_len)
-                predicted = torch.argmax(outputs, -1)
-                total += labels.size(-1)
-                correct += (predicted == labels).sum().item()
-                FAR, FRR = compute_far_frr(args.lang, predicted, labels)
-                FAR_list += FAR
-                FRR_list += FRR
-            acc = correct / total
-        print('Current Acc.: {:.4f} %'.format(100 * acc))
-        for i in range(args.lang):
-            eer_ = (FAR_list[i] / total + FRR_list[i] / total) / 2
-            eer += eer_
-            print("EER for label {}: {:.4f}%".format(i, eer_ * 100))
-        print('EER: {:.4f} %'.format(100 * eer / args.lang))
-        if acc > best_acc:
-            print('New best Acc.: {:.4f}%, EER: {:.4f} %, model saved!'.format(100 * acc, 100 * eer / args.lang))
-            best_acc = acc
-            best_eer = eer / args.lang
-            torch.save(model.state_dict(), args.savedir + '{}.ckpt'.format(args.model))
+        best_acc, best_eer = run_eval(model, valid_data, device, args, best_acc, best_eer)
     print('Final Acc: {:.4f}%, EER: {:.4f}%'.format(100 * best_acc, 100 * best_eer))
     model_name = args.savedir + '{}.ckpt'.format(args.model)
     final_name = args.savedir + '{}_{:.4f}_{:.4f}.ckpt'.format(args.model, best_acc * 100, best_eer * 100)
