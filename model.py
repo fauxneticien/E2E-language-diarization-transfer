@@ -50,12 +50,11 @@ class BLSTM_E2E_LID(nn.Module):
         output = torch.sigmoid(self.output_fc(output_))
         return output.view(-1,self.num_classes), embedding
 
-# SA-E2E
+#
 class Transformer_E2E_LID(nn.Module):
     def __init__(self, input_dim, feat_dim,
                  d_k, d_v, d_ff, n_heads=4,
-                 dropout=0.1,n_lang=3, max_seq_len=140,
-                 device=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')):
+                 dropout=0.1,n_lang=3, max_seq_len=10000):
         super(Transformer_E2E_LID, self).__init__()
         self.transform = nn.Linear(input_dim, feat_dim)
         self.layernorm1 = LayerNorm(feat_dim)
@@ -76,22 +75,18 @@ class Transformer_E2E_LID(nn.Module):
         output, _ = self.attention_block1(output, atten_mask)
         output, _ = self.attention_block2(output, atten_mask)
         output, _ = self.attention_block3(output, atten_mask)
-        output, _ = self.attention_block4(output, atten_mask)
+        output, atten_weight = self.attention_block4(output, atten_mask)
         output = self.sigmoid(self.output_fc(output))
         return output
 
 
-# XSA-E2E
 class X_Transformer_E2E_LID(nn.Module):
     def __init__(self, input_dim, feat_dim,
                  d_k, d_v, d_ff, n_heads=4,
-                 dropout=0.1,n_lang=3, max_seq_len=140,
-                 device=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')):
+                 dropout=0.1,n_lang=3, max_seq_len=140):
         super(X_Transformer_E2E_LID, self).__init__()
         self.input_dim = input_dim
         self.feat_dim = feat_dim
-        self.device = device
-        # x-vector module
         self.dropout = nn.Dropout(p=dropout)
         self.tdnn1 = nn.Conv1d(in_channels=input_dim, out_channels=512, kernel_size=5, dilation=1)
         self.bn1 = nn.BatchNorm1d(512, momentum=0.1, affine=False)
@@ -101,12 +96,12 @@ class X_Transformer_E2E_LID(nn.Module):
         self.bn3 = nn.BatchNorm1d(512, momentum=0.1, affine=False)
         self.tdnn4 = nn.Conv1d(in_channels=512, out_channels=1500, kernel_size=1, dilation=1)
         self.bn4 = nn.BatchNorm1d(1500, momentum=0.1, affine=False)
-        self.fc5 = nn.Linear(3000, feat_dim)
-        self.bn5 = nn.BatchNorm1d(feat_dim, momentum=0.1, affine=False)
-        self.fc6 = nn.Linear(feat_dim, feat_dim)
-        self.bn6 = nn.BatchNorm1d(feat_dim, momentum=0.1, affine=False)  # momentum=0.5 in asv-subtools
-        self.fc7 = nn.Linear(feat_dim, n_lang)
-        # attention module
+        self.fc1 = nn.Linear(3000, feat_dim)
+        self.bn_fc1 = nn.BatchNorm1d(feat_dim, momentum=0.1, affine=False)
+        self.fc2 = nn.Linear(feat_dim, feat_dim)
+        self.bn_fc2 = nn.BatchNorm1d(feat_dim, momentum=0.1, affine=False)  # momentum=0.5 in asv-subtools
+        self.fc3 = nn.Linear(feat_dim, n_lang)
+
         self.layernorm1 = LayerNorm(feat_dim)
         self.pos_encoding = PositionalEncoding(max_seq_len=max_seq_len, features_dim=256)
         self.layernorm2 = LayerNorm(feat_dim)
@@ -121,27 +116,32 @@ class X_Transformer_E2E_LID(nn.Module):
         batch_size = x.size(0)
         T_len = x.size(1)
         x = self.dropout(x)
-        x = x.view(batch_size*T_len, self.input_dim, -1) # [B,T,input_dim,K]=>[B*T,input_dim,K]
-        x = self.bn1(F.relu(self.tdnn1(x)))
+        x = self.bn1(F.relu(self.tdnn1(x.view(batch_size*T_len, -1, self.input_dim).transpose(-1,-2))))
+        x = self.dropout(x)
         x = self.bn2(F.relu(self.tdnn2(x)))
+        x = self.dropout(x)
         x = self.bn3(F.relu(self.tdnn3(x)))
+        x = self.dropout(x)
         x = self.bn4(F.relu(self.tdnn4(x)))
 
         if self.training:
             shape = x.size()
-            noise = torch.FloatTensor(shape).to(self.device)
+            noise = torch.Tensor(shape)
+            noise = noise.type_as(x)
             torch.randn(shape, out=noise)
             x += noise * eps
 
         stats = torch.cat((x.mean(dim=2), x.std(dim=2)), dim=1)
-        embedding = self.fc5(stats)
-        x = self.bn5(F.relu(embedding))
+        # print("pooling", stats.size())
+        embedding = self.fc1(stats)
+        x = self.bn_fc1(F.relu(embedding))
         x = self.dropout(x)
-        x = self.bn6(F.relu(self.fc6(x)))
-        x = self.dropout(x)
-        cnn_output = self.fc7(x)
+        x = self.bn_fc2(F.relu(self.fc2(x)))
 
-        embedding = embedding.view(batch_size, T_len, self.feat_dim) # embedding:[B*T,feat_dim]=>[B, T, feat_dim]
+        cnn_output = self.fc3(x)
+
+        #x [B, T, input_dim] => [B, T feat_dim]
+        embedding = embedding.view(batch_size, T_len, self.feat_dim)
         output = self.layernorm1(embedding)
         output = self.pos_encoding(output,seq_len)
         output = self.layernorm2(output)
@@ -151,3 +151,4 @@ class X_Transformer_E2E_LID(nn.Module):
         output, _ = self.attention_block4(output, atten_mask)
         output = self.sigmoid(self.output_fc(output))
         return output, cnn_output
+

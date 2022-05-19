@@ -1,3 +1,7 @@
+Directories assumptions:
+Assume npy/ folder contains all the processed npy files
+Assume the 2 checkpoint files are in the current directory
+
 Sample test runs
 
 ## but --lang should be 3

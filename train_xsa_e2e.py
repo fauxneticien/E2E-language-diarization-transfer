@@ -107,8 +107,7 @@ def main():
                                 d_k=256,
                                 d_v=256,
                                 d_ff=2048,
-                                max_seq_len=args.maxlength,
-                                device=device)
+                                max_seq_len=args.maxlength)
     model.to(device)
 
     valid_txt = args.test
@@ -120,7 +119,7 @@ def main():
                             collate_fn=collate_fn_cnn_atten)
 
     if args.testonly:
-        model.load_state_dict(torch.load(args.model_ckpt, map_location='cuda:0'), strict=False)
+        model.load_state_dict(torch.load(args.model_ckpt, map_location='cuda:0'))
         _, _ = run_eval(model, valid_data, device, args, 0, 0)
         return
 

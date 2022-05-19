@@ -1,0 +1,4 @@
+{
+  "pretrained": "./Transformer_89.0304_5.4848.ckpt",
+  "gpu_id":"0"
+}
