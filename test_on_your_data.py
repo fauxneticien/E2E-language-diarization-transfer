@@ -29,7 +29,7 @@ def extract_log_fbank(audio, dim=23, log=True):
 def main():
     parser = argparse.ArgumentParser(description='paras for making data')
     parser.add_argument('--json', type=str, default='test_on_your_data.json')
-    parser.add_argument('--test', type=str, help='testing data, in .txt')
+    parser.add_argument('--test', type=str, default="test.txt", help='testing data, in .txt')
 
     args = parser.parse_args()
 
@@ -69,7 +69,6 @@ def main():
                             pin_memory=True,
                             shuffle=False,
                             collate_fn=collate_fn_cnn_atten)
-    print(test_data)
     lang = 2
     eer = 0
     correct = 0
@@ -78,8 +77,10 @@ def main():
     FRR_list = torch.zeros(lang)
     with torch.no_grad():
         for step, (utt, labels, cnn_labels, seq_len) in enumerate(test_data):
-            print("here")
             utt_ = utt.to(device=device, dtype=torch.float)
+            if (utt.shape[1]) != seq_len[0]:
+                print(step, utt.shape[1], seq_len)
+                continue
             labels = labels.to(device=device, dtype=torch.long)
             # Forward pass
             outputs, cnn_outputs = model(x=utt_, seq_len=seq_len, atten_mask=None)

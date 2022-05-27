@@ -56,7 +56,7 @@ class RawFeatures(data.Dataset):
         with open(txt_path, 'r') as f:
             lines = f.readlines()
             self.feature_list = [i.split()[0] for i in lines]
-            self.label_list = [i.split()[-1] for i in lines]
+            self.label_list = [i.split()[-2] for i in lines]
 
     def __getitem__(self, index):
         feature_path = self.feature_list[index]

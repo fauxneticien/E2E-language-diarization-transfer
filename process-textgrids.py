@@ -42,29 +42,42 @@ for tg_file in textgrid_files:
         clip_start, clip_end, _ = clip_info
 
         # subset the wav file to get samples for clip
-        clip_wav = wav_data[int(clip_start / 1000 * wav_sr) : int(clip_end / 1000 * wav_sr)]
-        clip_wavs.append(clip_wav)
-
-        clip_dur_ms = clip_end - clip_start
-
-        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        clip_zeros  = np.zeros(clip_dur_ms, dtype=np.int8)
-
+        clip_wav = []
         # Get annotations from 'speech' tier that occur within the clip, and normalise times relative to the start of the clip
-        clip_ones = [ (start_ms - clip_start, end_ms - clip_start) for start_ms, end_ms, _ in speech if start_ms >= clip_start and end_ms <= clip_end ]
+        speech_intervals = [ (max(clip_start, start_ms) - clip_start, min(clip_end, end_ms) - clip_start) for start_ms, end_ms, _ in speech if end_ms >= clip_start and start_ms <= clip_end ]
+
+        # Initialize clip_ones with all zeros
+        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        clip_zeros = np.zeros(clip_end - clip_start)
 
         # Set times with any speech to 1
         # [0, 0, 1, 1, 1, 1, 1, 1, 0, 0]
-        for start_ms, end_ms in clip_ones:
+        for start_ms, end_ms in speech_intervals:
             clip_zeros[start_ms:end_ms] = 1
-            
+            # extract speech audio from wav_data
+            clip_wav.extend(wav_data[int((start_ms+clip_start) / 1000 * wav_sr) : int((end_ms+clip_start) / 1000 * wav_sr)])
+        
+        clip_dur_ms = clip_zeros.sum()
+
+        clip_wavs.append(clip_wav)
+
+        # Skip silent clips
+        if clip_dur_ms == 0:
+            clip_labels.append("")
+            continue
+
         # Get annotations from 'english' tier that occur within the clip, and normalise times relative to the start of the clip
-        clip_twos = [ (start_ms - clip_start, end_ms - clip_start) for start_ms, end_ms, _ in english if start_ms >= clip_start and end_ms <= clip_end ]
+        english_intervals = [ (max(clip_start, start_ms) - clip_start, min(clip_end, end_ms) - clip_start) for start_ms, end_ms, _ in english if end_ms >= clip_start and start_ms <= clip_end ]
 
         # Set times with English speech to 2
-        # [0, 0, 1, 1, 2, 2, 1, 1, 0, 0]
-        for start_ms, end_ms in clip_twos:
-            clip_zeros[start_ms:end_ms] = 2
+        # [1, 1, 1, 1, 2, 2, 1, 1, 1, 1]
+        clip_twos = np.zeros(clip_end - clip_start)
+        for start_ms, end_ms in english_intervals:
+            clip_twos[start_ms:end_ms] = 1
+        clip_zeros += clip_zeros * clip_twos
+
+        # remove zeros
+        clip_zeros = np.array([i for i in clip_zeros if i != 0], dtype=np.int8)
 
         # Bin times into 200-millisecond chunks (and get most frequently occurring value for bin)
         # to create labels required for: https://github.com/Lhx94As/E2E-language-diarization/blob/main/data/data.txt
@@ -87,7 +100,7 @@ for tg_file in textgrid_files:
     assert len(clip_id) == len(clip_wavs)
     for i in range(len(clip_id)):
         # write out wav clip
-        sf.write("processed/" + clip_id[i] + ".wav", clip_wavs[i], wav_sr)
+        sf.write("binary_processed/" + clip_id[i] + ".wav", clip_wavs[i], wav_sr)
 
     tg_dfs.append(pd.DataFrame({
         "clip_id" : clip_id,
@@ -98,5 +111,5 @@ for tg_file in textgrid_files:
 labels_df = pd.concat(tg_dfs)
 
 #print(labels_df[['clip_id', 'label']])
-labels_df.to_csv('labels.tsv', sep="\t", index=False)
+labels_df.to_csv("binary_processed/" + 'labels.tsv', sep="\t", index=False)
 
