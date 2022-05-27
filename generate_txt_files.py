@@ -21,7 +21,7 @@ def process_tsv(tsv_filename):
     textlines = []
     with open(tsv_filename) as tsv_f:
         for row in csv.reader(tsv_f, delimiter="\t"):
-            textlines.append(os.path.join("npys", f'{row[0]+".npy"} {row[2]} {len(row[2])}'))
+            textlines.append(os.path.join("binary_npys", f'{row[0]+".npy"} {row[2]} {len(row[2])}'))
     return textlines[1:]
 
 def split_data(textlines):
