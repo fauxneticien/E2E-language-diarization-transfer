@@ -90,6 +90,8 @@ for tg_file in textgrid_files:
         # Use multimode in case of ties and just pick the first label as mode
         label_arr = [ str(multimode(bin)[0]) for bin in label_arr ]
         label_str = "".join(label_arr)
+        label_str = label_str.replace('1', '0')
+        label_str = label_str.replace('2', '1')
 
         clip_labels.append(label_str)
 
