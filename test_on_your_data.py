@@ -78,9 +78,6 @@ def main():
     with torch.no_grad():
         for step, (utt, labels, cnn_labels, seq_len) in enumerate(test_data):
             utt_ = utt.to(device=device, dtype=torch.float)
-            if (utt.shape[1]) != seq_len[0]:
-                print(step, utt.shape[1], seq_len)
-                continue
             labels = labels.to(device=device, dtype=torch.long)
             # Forward pass
             outputs, cnn_outputs = model(x=utt_, seq_len=seq_len, atten_mask=None)
