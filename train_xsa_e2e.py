@@ -77,6 +77,7 @@ def run_eval(model, valid_data, device, args, cur_best_acc, cur_best_eer):
 
 def main():
     global best_eer
+    best_eer = 1
     parser = argparse.ArgumentParser(description='paras for making data')
     parser.add_argument('--savedir', type=str, help='dir in which the trained model is saved')
     parser.add_argument('--train', type=str, help='training data, in .txt')
