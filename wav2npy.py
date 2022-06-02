@@ -15,9 +15,11 @@ def extract_fbank(signal, sr, dim=23, log=True):
         features = psf.fbank(signal, sr, nfilt=dim, lowfreq=20, highfreq=high_frequency)
     return features
 
-wav_files = glob.glob("binary_processed/*.wav")
+#wav_files = glob.glob("binary_processed/*.wav")
+wav_files = glob.glob("augmented_data/*.wav")
 # wav_files = ["4oLp3bc9OSJbDrwM_0000.wav"]
-os.mkdir("binary_npys")
+if not os.path.isdir('binary_npys'):
+    os.mkdir("binary_npys")
 
 for wav_file in wav_files:
 

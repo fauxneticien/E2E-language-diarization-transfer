@@ -119,8 +119,11 @@ def main():
                             shuffle=False,
                             collate_fn=collate_fn_cnn_atten)
 
-    if args.testonly:
+    if len(args.model_ckpt) != 0:
+        print('Loading model from ' + args.model_ckpt)
         model.load_state_dict(torch.load(args.model_ckpt, map_location='cuda:0'))
+
+    if args.testonly:
         _, _ = run_eval(model, valid_data, device, args, 0, 0)
         return
 
@@ -137,8 +140,8 @@ def main():
                             collate_fn=collate_fn_cnn_atten)
     # optimizer & learning rate decay strategy
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
     total_step = len(train_data)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs*total_step)
     best_acc = 0
     # Train model
     for epoch in tqdm(range(args.epochs)):
@@ -163,7 +166,7 @@ def main():
                 print("Epoch [{}/{}], Step [{}/{}] Loss: {:.4f} Trans: {:.4f} XV: {:.4f}".
                       format(epoch + 1, args.epochs, step + 1, total_step,
                              loss.item(), loss_trans.item(), loss_xv.item()))
-        scheduler.step()
+            scheduler.step()
         print('Current LR: {}'.format(get_lr(optimizer)))
 
         best_acc, best_eer = run_eval(model, valid_data, device, args, best_acc, best_eer)

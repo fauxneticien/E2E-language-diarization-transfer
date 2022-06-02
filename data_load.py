@@ -56,7 +56,7 @@ class RawFeatures(data.Dataset):
         with open(txt_path, 'r') as f:
             lines = f.readlines()
             self.feature_list = [i.split()[0] for i in lines]
-            self.label_list = [i.split()[-2] for i in lines]
+            self.label_list = [i.split()[1] for i in lines]
 
     def __getitem__(self, index):
         feature_path = self.feature_list[index]
@@ -73,7 +73,7 @@ def get_atten_mask(seq_lens, batch_size):
     atten_mask = torch.ones([batch_size, max_len, max_len])
     for i in range(batch_size):
         length = seq_lens[i]
-        atten_mask[i, :length,:length] = 0
+        atten_mask[:length,:length] = 0
     return atten_mask.bool()
 
 

@@ -49,18 +49,8 @@ def main():
                                   d_ff=2048,
                                   max_seq_len=1000)
     model.to(device)
-    pretrained_dict = torch.load(config_proj["pretrained"], map_location='cuda:0')
-    new_state_dict = OrderedDict()
-    model_dict = model.state_dict()
-    dict_list = []
-    for k, v in model_dict.items():
-        dict_list.append(k)
-    for k, v in pretrained_dict.items():
-        if k.startswith('module.') and k[7:] in dict_list:
-            new_state_dict[k[7:]] = v
-        elif k in dict_list:
-            new_state_dict[k] = v
-    model.load_state_dict(new_state_dict)
+    model.load_state_dict(torch.load(config_proj['pretrained'], map_location='cuda:0'))
+    model.eval()
 
     test = args.test
     test_set = RawFeatures(test)
@@ -78,6 +68,9 @@ def main():
     with torch.no_grad():
         for step, (utt, labels, cnn_labels, seq_len) in enumerate(test_data):
             utt_ = utt.to(device=device, dtype=torch.float)
+            if (utt.shape[1]) != seq_len[0]:
+                print(step, utt.shape[1], seq_len)
+                continue
             labels = labels.to(device=device, dtype=torch.long)
             # Forward pass
             outputs, cnn_outputs = model(x=utt_, seq_len=seq_len, atten_mask=None)
