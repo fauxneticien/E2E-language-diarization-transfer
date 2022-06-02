@@ -119,7 +119,7 @@ def main():
                             shuffle=False,
                             collate_fn=collate_fn_cnn_atten)
 
-    if len(args.model_ckpt) != 0:
+    if args.model_ckpt:
         print('Loading model from ' + args.model_ckpt)
         model.load_state_dict(torch.load(args.model_ckpt, map_location='cuda:0'))
 
